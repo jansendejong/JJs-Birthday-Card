@@ -1,5 +1,5 @@
 // jjs-birthday-card.js
-// v2.2.1 — Background and text color adjustable incl. transparent background
+// v2.3.0 — Added color customization for days indicator
 
 // ------------- IMPORTS -------------
 import { LitElement, html, css } 
@@ -49,6 +49,26 @@ class JJsBirthdayCard extends LitElement {
         color: inherit;
         opacity: 0.75;
       }
+      /* Dagen indicator stijlen - gebruik inline styles voor kleuren */
+      .days-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0 6px;
+      }
+      .days-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .days-text {
+        font-size: 0.9em;
+        font-weight: 500;
+        white-space: nowrap;
+      }
     `;
   }
 
@@ -74,7 +94,16 @@ class JJsBirthdayCard extends LitElement {
       hide_if_empty: base.hide_if_empty === true,
       today_color: base.today_color || "#ffe082",
 
-      // Kleuren (zonder defaults forceren; undefined = thema)
+      // Dagen indicator configuratie
+      show_days_indicator: base.show_days_indicator !== false, // default: true
+      days_indicator_style: base.days_indicator_style || "badge", // "badge" | "text" | "none"
+      
+      // Dagen indicator kleuren
+      days_badge_bg_color: base.days_badge_bg_color || "#03a9f4", // Badge achtergrond
+      days_badge_text_color: base.days_badge_text_color || "#ffffff", // Badge tekst
+      days_text_color: base.days_text_color || "#03a9f4", // Tekst kleur
+
+      // Kleuren (zonder defaults te forceren; undefined = thema)
       transparent_background: transparent,
       card_background: bg,            // bv. "#ffffff" of "transparent" of undefined
       card_text_color: fg,            // bv. "#000000" of undefined
@@ -88,11 +117,11 @@ class JJsBirthdayCard extends LitElement {
     const lang = this.hass?.language || 'en';
 
     const translations = {
-      en: { header: (d)=>`Birthdays in the next ${d} days`, noBirthdays:"No birthdays added", noneUpcoming:"No upcoming birthdays", today:"today", tomorrow:"tomorrow", year:"years" },
-      nl: { header: (d)=>`Verjaardagen komende ${d} dagen`, noBirthdays:"Geen verjaardagen toegevoegd", noneUpcoming:"Geen verjaardagen", today:"vandaag", tomorrow:"morgen", year:"jaar" },
-      de: { header: (d)=>`Geburtstage in den nächsten ${d} Tagen`, noBirthdays:"Keine Geburtstage hinzugefügt", noneUpcoming:"Keine bevorstehenden Geburtstage", today:"heute", tomorrow:"morgen", year:"Jahre" },
-      fr: { header: (d)=>`Anniversaires dans les ${d} prochains jours`, noBirthdays:"Aucun anniversaire ajouté", noneUpcoming:"Aucun anniversaire à venir", today:"aujourd'hui", tomorrow:"demain", year:"ans" },
-      es: { header: (d)=>`Cumpleaños en los próximos ${d} días`, noBirthdays:"No se han añadido cumpleaños", noneUpcoming:"No hay cumpleaños próximos", today:"hoy", tomorrow:"mañana", year:"años" }
+      en: { header: (d)=>`Birthdays in the next ${d} days`, noBirthdays:"No birthdays added", noneUpcoming:"No upcoming birthdays", today:"today", tomorrow:"tomorrow", year:"years", day:"day", days:"days" },
+      nl: { header: (d)=>`Verjaardagen komende ${d} dagen`, noBirthdays:"Geen verjaardagen toegevoegd", noneUpcoming:"Geen verjaardagen", today:"vandaag", tomorrow:"morgen", year:"jaar", day:"dag", days:"dagen" },
+      de: { header: (d)=>`Geburtstage in den nächsten ${d} Tagen`, noBirthdays:"Keine Geburtstage hinzugefügt", noneUpcoming:"Keine bevorstehenden Geburtstage", today:"heute", tomorrow:"morgen", year:"Jahre", day:"Tag", days:"Tage" },
+      fr: { header: (d)=>`Anniversaires dans les ${d} prochains jours`, noBirthdays:"Aucun anniversaire ajouté", noneUpcoming:"Aucun anniversaire à venir", today:"aujourd'hui", tomorrow:"demain", year:"ans", day:"jour", days:"jours" },
+      es: { header: (d)=>`Cumpleaños en los próximos ${d} días`, noBirthdays:"No se han añadido cumpleaños", noneUpcoming:"No hay cumpleaños próximos", today:"hoy", tomorrow:"mañana", year:"años", day:"día", days:"días" }
     };
     const t = translations[lang] || translations["en"];
 
@@ -113,7 +142,11 @@ class JJsBirthdayCard extends LitElement {
         const orig = new Date(b.date);
         let next = new Date(today.getFullYear(), orig.getMonth(), orig.getDate());
         if (next < today) next.setFullYear(next.getFullYear() + 1);
-        return { ...b, date: next, originalDate: orig };
+        
+        // Bereken dagen tot verjaardag
+        const diffDays = Math.round((next - today) / (1000 * 60 * 60 * 24));
+        
+        return { ...b, date: next, originalDate: orig, diffDays };
       })
       .filter(b => {
         const diff = (b.date - today) / (1000 * 60 * 60 * 24);
@@ -177,6 +210,28 @@ class JJsBirthdayCard extends LitElement {
           };
           const textColor = getTextColor(bgColor);
 
+          // Dagen indicator logica met kleuren
+          const getDaysIndicator = () => {
+            if (!this.config.show_days_indicator || 
+                this.config.days_indicator_style === "none" || 
+                isToday) {
+              return '';
+            }
+
+            const daysText = b.diffDays === 1 ? t.day : t.days;
+            
+            if (this.config.days_indicator_style === "badge") {
+              const badgeBg = this.config.days_badge_bg_color || "#03a9f4";
+              const badgeText = this.config.days_badge_text_color || "#ffffff";
+              return html`<span class="days-badge" style="background: ${badgeBg}; color: ${badgeText};">${b.diffDays}d</span>`;
+            } else if (this.config.days_indicator_style === "text") {
+              const textCol = this.config.days_text_color || "#03a9f4";
+              return html`<span class="days-text" style="color: ${textCol};">${b.diffDays} ${daysText}</span>`;
+            }
+            
+            return '';
+          };
+
           return html`
             <div class="birthday"
               style="display:flex;justify-content:space-between;align-items:center;
@@ -187,6 +242,8 @@ class JJsBirthdayCard extends LitElement {
                 <span class="age" style="color:${isToday ? textColor : 'inherit'}">
                   (${age} ${lang === 'nl' ? 'jaar' : t.year})
                 </span>
+                <!-- Dagen indicator -->
+                ${!isToday ? html`<span class="days-indicator">${getDaysIndicator()}</span>` : ''}
               </span>
               <span>${dateText}</span>
             </div>
@@ -217,6 +274,11 @@ class JJsBirthdayCard extends LitElement {
     return {
       days_ahead: 7,
       sort_by: 'date',
+      show_days_indicator: true,
+      days_indicator_style: 'badge',
+      days_badge_bg_color: '#03a9f4',
+      days_badge_text_color: '#ffffff',
+      days_text_color: '#03a9f4',
       birthdays: [
         { name: "Voorbeeld", date: new Date().toISOString().split('T')[0] },
       ],
@@ -252,6 +314,12 @@ class JJsBirthdayCardEditor extends LitElement {
         align-items: center;
         margin-bottom: 8px;
       }
+      .color-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
       .list {
         border: 1px solid var(--divider-color, #e0e0e0);
         border-radius: 8px;
@@ -275,6 +343,14 @@ class JJsBirthdayCardEditor extends LitElement {
         border-radius: 6px;
         border: 1px solid var(--divider-color, #ddd);
         box-sizing: border-box;
+      }
+      input[type="color"] {
+        width: 100%;
+        height: 36px;
+        padding: 2px;
+        border-radius: 6px;
+        border: 1px solid var(--divider-color, #ddd);
+        cursor: pointer;
       }
       button.icon {
         width: 36px;
@@ -350,6 +426,12 @@ class JJsBirthdayCardEditor extends LitElement {
         margin: 12px 0;
       }
       .btn:hover { filter: brightness(0.98); }
+      .section-title {
+        font-weight: 600;
+        font-size: 1em;
+        margin: 16px 0 8px 0;
+        color: var(--primary-text-color, #000);
+      }
     `;
   }
 
@@ -371,6 +453,15 @@ class JJsBirthdayCardEditor extends LitElement {
     cfg.show_header = cfg.show_header !== false;
     cfg.custom_header = cfg.custom_header || "";
     cfg.hide_if_empty = config.hide_if_empty === true;
+
+    // Dagen indicator configuratie
+    cfg.show_days_indicator = config.show_days_indicator !== false; // default: true
+    cfg.days_indicator_style = cfg.days_indicator_style || "badge"; // default: badge
+    
+    // Dagen indicator kleuren
+    cfg.days_badge_bg_color = cfg.days_badge_bg_color || "#03a9f4";
+    cfg.days_badge_text_color = cfg.days_badge_text_color || "#ffffff";
+    cfg.days_text_color = cfg.days_text_color || "#03a9f4";
 
     // Kleuren (zonder defaults te forceren; undefined = thema)
     cfg.today_color = cfg.today_color || "#ffe082";
@@ -434,8 +525,27 @@ class JJsBirthdayCardEditor extends LitElement {
     this._fireConfigChanged();
   }
 
+  _resetDaysIndicatorColors() {
+    this._config = {
+      ...this._config,
+      days_badge_bg_color: "#03a9f4",
+      days_badge_text_color: "#ffffff",
+      days_text_color: "#03a9f4",
+    };
+    this._fireConfigChanged();
+  }
+
   render() {
-    const cfg = this._config || { birthdays: [], days_ahead: 7, sort_by: "date" };
+    const cfg = this._config || { 
+      birthdays: [], 
+      days_ahead: 7, 
+      sort_by: "date", 
+      show_days_indicator: true, 
+      days_indicator_style: "badge",
+      days_badge_bg_color: "#03a9f4",
+      days_badge_text_color: "#ffffff",
+      days_text_color: "#03a9f4"
+    };
     const lang = this.hass?.language || 'en';
 
     const translationsEditor = {
@@ -455,10 +565,20 @@ class JJsBirthdayCardEditor extends LitElement {
         sortDate: "Date",
         sortName: "Name",
         hide_if_empty: "Hide card when there are no upcoming birthdays",
-        cardBackground: "Backgroundcolor",
+        cardBackground: "Background color",
         transparentBg: "Transparent background",
         cardTextColor: "Text color",
         resetTheme: "Theme colors",
+        showDaysIndicator: "Show days indicator",
+        daysIndicatorStyle: "Days indicator style",
+        styleBadge: "Badge",
+        styleText: "Text",
+        styleNone: "None",
+        daysIndicatorColors: "Days Indicator Colors",
+        badgeBackground: "Badge background",
+        badgeText: "Badge text",
+        textColor: "Text color",
+        resetIndicatorColors: "Reset indicator colors",
       },
       nl: {
         sortBy: "Sorteren op",
@@ -480,6 +600,16 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparant",
         cardTextColor: "Tekstkleur",
         resetTheme: "Thema kleuren",
+        showDaysIndicator: "Toon dagen indicator",
+        daysIndicatorStyle: "Dagen indicator stijl",
+        styleBadge: "Badge",
+        styleText: "Tekst",
+        styleNone: "Geen",
+        daysIndicatorColors: "Dagen Indicator Kleuren",
+        badgeBackground: "Badge achtergrond",
+        badgeText: "Badge tekst",
+        textColor: "Tekst kleur",
+        resetIndicatorColors: "Reset indicator kleuren",
       },
       de: {
         sortBy: "Sortieren nach",
@@ -501,6 +631,16 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparent",
         cardTextColor: "Textfarbe",
         resetTheme: "Themafarbe",
+        showDaysIndicator: "Tage-Indikator anzeigen",
+        daysIndicatorStyle: "Tage-Indikator Stil",
+        styleBadge: "Badge",
+        styleText: "Text",
+        styleNone: "Keine",
+        daysIndicatorColors: "Tage-Indikator Farben",
+        badgeBackground: "Badge Hintergrund",
+        badgeText: "Badge Text",
+        textColor: "Textfarbe",
+        resetIndicatorColors: "Indikator-Farben zurücksetzen",
       },
       fr: {
         sortBy: "Trier par",
@@ -518,10 +658,20 @@ class JJsBirthdayCardEditor extends LitElement {
         sortDate: "Date",
         sortName: "Nom",
         hide_if_empty: "Masquer la carte s'il n'y a pas d'anniversaires à venir",
-        cardBackground: "Couleur d’arrière-plan",
+        cardBackground: "Couleur d'arrière-plan",
         transparentBg: "Transparent",
         cardTextColor: "Couleur du texte",
         resetTheme: "Thème couleur",
+        showDaysIndicator: "Afficher l'indicateur de jours",
+        daysIndicatorStyle: "Style de l'indicateur de jours",
+        styleBadge: "Badge",
+        styleText: "Texte",
+        styleNone: "Aucun",
+        daysIndicatorColors: "Couleurs de l'indicateur de jours",
+        badgeBackground: "Arrière-plan du badge",
+        badgeText: "Texte du badge",
+        textColor: "Couleur du texte",
+        resetIndicatorColors: "Réinitialiser les couleurs de l'indicateur",
       },
       es: {
         sortBy: "Ordenar por",
@@ -543,6 +693,16 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparente",
         cardTextColor: "Color del texto",
         resetTheme: "Tema color",
+        showDaysIndicator: "Mostrar indicador de días",
+        daysIndicatorStyle: "Estilo del indicador de días",
+        styleBadge: "Badge",
+        styleText: "Texto",
+        styleNone: "Ninguno",
+        daysIndicatorColors: "Colores del indicador de días",
+        badgeBackground: "Fondo del badge",
+        badgeText: "Texto del badge",
+        textColor: "Color del texto",
+        resetIndicatorColors: "Restablecer colores del indicador",
       }
     };
     const t_editor = translationsEditor[lang] || translationsEditor['en'];
@@ -581,6 +741,79 @@ class JJsBirthdayCardEditor extends LitElement {
               }}
             />
           </div>
+        ` : ''}
+
+        <hr class="divider" />
+
+        <div class="toggle-wrapper">
+          <label>${t_editor.showDaysIndicator}</label>
+          <label class="switch">
+            <input
+              type="checkbox"
+              .checked=${cfg.show_days_indicator !== false}
+              @change=${e => {
+                this._config.show_days_indicator = e.target.checked;
+                this._fireConfigChanged();
+              }}
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        ${cfg.show_days_indicator !== false ? html`
+          <div style="margin: 8px 0;">
+            <label>${t_editor.daysIndicatorStyle}</label>
+            <select 
+              .value=${cfg.days_indicator_style || 'badge'} 
+              @change=${e => this._updateSimpleField('days_indicator_style', e)}
+            >
+              <option value="badge">${t_editor.styleBadge}</option>
+              <option value="text">${t_editor.styleText}</option>
+              <option value="none">${t_editor.styleNone}</option>
+            </select>
+          </div>
+
+          ${cfg.days_indicator_style !== 'none' ? html`
+            <div class="section-title">${t_editor.daysIndicatorColors}</div>
+            
+            ${cfg.days_indicator_style === 'badge' ? html`
+              <div class="color-row">
+                <div>
+                  <label>${t_editor.badgeBackground}</label>
+                  <input 
+                    type="color" 
+                    .value=${cfg.days_badge_bg_color || '#03a9f4'} 
+                    @change=${e => this._updateSimpleField('days_badge_bg_color', e)} 
+                  />
+                </div>
+                <div>
+                  <label>${t_editor.badgeText}</label>
+                  <input 
+                    type="color" 
+                    .value=${cfg.days_badge_text_color || '#ffffff'} 
+                    @change=${e => this._updateSimpleField('days_badge_text_color', e)} 
+                  />
+                </div>
+              </div>
+            ` : ''}
+
+            ${cfg.days_indicator_style === 'text' ? html`
+              <div style="margin: 8px 0;">
+                <label>${t_editor.textColor}</label>
+                <input 
+                  type="color" 
+                  .value=${cfg.days_text_color || '#03a9f4'} 
+                  @change=${e => this._updateSimpleField('days_text_color', e)} 
+                />
+              </div>
+            ` : ''}
+
+            <div style="margin: 8px 0;">
+              <button class="btn" @click=${this._resetDaysIndicatorColors}>
+                ${t_editor.resetIndicatorColors}
+              </button>
+            </div>
+          ` : ''}
         ` : ''}
 
         <hr class="divider" />
@@ -679,11 +912,11 @@ class JJsBirthdayCardEditor extends LitElement {
             </div>
           </div>
 
-          ${cfg.birthdays.length === 0 
+          ${(cfg.birthdays || []).length === 0 
             ? html`<div style="color:var(--secondary-text-color,#666)">${t_editor.noBirthdays}</div>` 
             : ''}
 
-          ${cfg.birthdays.map((b, idx) => html`
+          ${(cfg.birthdays || []).map((b, idx) => html`
             <div class="item">
               <input 
                 type="text" 
