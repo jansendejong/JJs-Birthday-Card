@@ -1,5 +1,7 @@
 // jjs-birthday-card.js
-// v2.3.0 — Added color customization for days indicator
+// v2.4.0 — Leeftijd uitlijnen o.b.v. langste naam (min-width in ch);
+//          + fix days_ahead/sort_by defaults in card setConfig;
+//          + fix ...base volgorde zodat defaults leidend blijven
 
 // ------------- IMPORTS -------------
 import { LitElement, html, css } 
@@ -44,6 +46,10 @@ class JJsBirthdayCard extends LitElement {
         font-weight: bold;
         margin-bottom: 8px;
       }
+      /* Naam krijgt een vaste minimale breedte zodat de leeftijd uitlijnt */
+      .name {
+        display: inline-block;
+      }
       /* Leeftijd erft de actuele tekstkleur (dus kleurt mee) */
       .age {
         color: inherit;
@@ -82,7 +88,6 @@ class JJsBirthdayCard extends LitElement {
       throw new Error('You need to define birthdays');
     }
 
-    // eerst spreaden (zodat onze defaults erna leidend kunnen zijn)
     const base = { ...config };
 
     const transparent = base.transparent_background === true;
@@ -90,14 +95,21 @@ class JJsBirthdayCard extends LitElement {
     const fg = base.card_text_color;
 
     this.config = {
+      // rest eerst spreaden zodat onze defaults hierna leidend zijn
+      ...base,
+
       show_header: base.show_header !== false,
       hide_if_empty: base.hide_if_empty === true,
       today_color: base.today_color || "#ffe082",
 
+      // Defaults die ook bij handmatige YAML moeten kloppen
+      days_ahead: Number(base.days_ahead) || 7,
+      sort_by: base.sort_by || "date",
+
       // Dagen indicator configuratie
       show_days_indicator: base.show_days_indicator !== false, // default: true
       days_indicator_style: base.days_indicator_style || "badge", // "badge" | "text" | "none"
-      
+
       // Dagen indicator kleuren
       days_badge_bg_color: base.days_badge_bg_color || "#03a9f4", // Badge achtergrond
       days_badge_text_color: base.days_badge_text_color || "#ffffff", // Badge tekst
@@ -107,9 +119,6 @@ class JJsBirthdayCard extends LitElement {
       transparent_background: transparent,
       card_background: bg,            // bv. "#ffffff" of "transparent" of undefined
       card_text_color: fg,            // bv. "#000000" of undefined
-
-      // rest
-      ...base,
     };
   }
 
@@ -163,6 +172,10 @@ class JJsBirthdayCard extends LitElement {
         </ha-card>
       `;
     }
+
+    // Langste naam bepalen voor uitlijning van de leeftijd-kolom.
+    // +1 buffer omdat brede letters (M, W) breder zijn dan het cijfer waar 'ch' op is gebaseerd.
+    const maxNameLen = Math.max(...upcoming.map(b => (b.name || "").length)) + 1;
 
     return html`
       <ha-card class="card" style=${this._cardStyle()}>
@@ -237,7 +250,8 @@ class JJsBirthdayCard extends LitElement {
               style="display:flex;justify-content:space-between;align-items:center;
               ${isToday ? `background-color:${bgColor}; color:${textColor};` : ''}">
               <span>
-                ${b.name}&nbsp;${icon}
+                <!-- Naam met vaste min-width zodat de leeftijd uitlijnt; icoon staat erbuiten -->
+                <span class="name" style="min-width:${maxNameLen}ch">${b.name}</span>&nbsp;${icon}
                 <!-- leeftijd erft mee; bij vandaag forceren we contrastkleur -->
                 <span class="age" style="color:${isToday ? textColor : 'inherit'}">
                   (${age} ${lang === 'nl' ? 'jaar' : t.year})
@@ -452,10 +466,10 @@ class JJsBirthdayCardEditor extends LitElement {
     cfg.sort_by = cfg.sort_by || "date";
     cfg.show_header = cfg.show_header !== false;
     cfg.custom_header = cfg.custom_header || "";
-    cfg.hide_if_empty = config.hide_if_empty === true;
+    cfg.hide_if_empty = cfg.hide_if_empty === true;
 
     // Dagen indicator configuratie
-    cfg.show_days_indicator = config.show_days_indicator !== false; // default: true
+    cfg.show_days_indicator = cfg.show_days_indicator !== false; // default: true
     cfg.days_indicator_style = cfg.days_indicator_style || "badge"; // default: badge
     
     // Dagen indicator kleuren
@@ -465,7 +479,7 @@ class JJsBirthdayCardEditor extends LitElement {
 
     // Kleuren (zonder defaults te forceren; undefined = thema)
     cfg.today_color = cfg.today_color || "#ffe082";
-    cfg.transparent_background = config.transparent_background === true;
+    cfg.transparent_background = cfg.transparent_background === true;
     cfg.card_background = cfg.transparent_background
       ? 'transparent'
       : (cfg.card_background ?? undefined);
@@ -852,18 +866,20 @@ class JJsBirthdayCardEditor extends LitElement {
           </div>
         </div>
 
-        <div style="flex:1">
-          <label>${t_editor.cardTextColor}</label>
-          <input type="color"
-                  .value=${textColorFieldValue}
-                  @change=${e => this._updateSimpleField('card_text_color', e)} />
-        </div>
+        <div class="row">
+          <div style="flex:1">
+            <label>${t_editor.cardTextColor}</label>
+            <input type="color"
+                    .value=${textColorFieldValue}
+                    @change=${e => this._updateSimpleField('card_text_color', e)} />
+          </div>
 
-        <div style="flex:1">
-          <label>${t_editor.todayColor}</label>
-          <input type="color" 
-                  .value=${cfg.today_color || '#ffe082'} 
-                  @change=${e => this._updateSimpleField('today_color', e)} />
+          <div style="flex:1">
+            <label>${t_editor.todayColor}</label>
+            <input type="color" 
+                    .value=${cfg.today_color || '#ffe082'} 
+                    @change=${e => this._updateSimpleField('today_color', e)} />
+          </div>
         </div>
 
         <hr class="divider" />
