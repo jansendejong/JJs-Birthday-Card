@@ -1,5 +1,5 @@
 // jjs-birthday-card.js
-// v2.3.0 — Added configurable days indicator + Background and text color adjustable incl. transparent background
+// v2.2.1 — Background and text color adjustable incl. transparent background
 
 // ------------- IMPORTS -------------
 import { LitElement, html, css } 
@@ -49,29 +49,6 @@ class JJsBirthdayCard extends LitElement {
         color: inherit;
         opacity: 0.75;
       }
-      /* Dagen indicator stijlen */
-      .days-indicator {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin: 0 6px;
-      }
-      .days-badge {
-        display: inline-block;
-        background: var(--primary-color, #03a9f4);
-        color: var(--text-primary-color, #fff);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.85em;
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .days-text {
-        color: var(--primary-color, #03a9f4);
-        font-size: 0.9em;
-        font-weight: 500;
-        white-space: nowrap;
-      }
     `;
   }
 
@@ -97,11 +74,7 @@ class JJsBirthdayCard extends LitElement {
       hide_if_empty: base.hide_if_empty === true,
       today_color: base.today_color || "#ffe082",
 
-      // Dagen indicator configuratie
-      show_days_indicator: base.show_days_indicator !== false, // default: true
-      days_indicator_style: base.days_indicator_style || "badge", // "badge" | "text" | "none"
-
-      // Kleuren (zonder defaults te forceren; undefined = thema)
+      // Kleuren (zonder defaults forceren; undefined = thema)
       transparent_background: transparent,
       card_background: bg,            // bv. "#ffffff" of "transparent" of undefined
       card_text_color: fg,            // bv. "#000000" of undefined
@@ -115,11 +88,11 @@ class JJsBirthdayCard extends LitElement {
     const lang = this.hass?.language || 'en';
 
     const translations = {
-      en: { header: (d)=>`Birthdays in the next ${d} days`, noBirthdays:"No birthdays added", noneUpcoming:"No upcoming birthdays", today:"today", tomorrow:"tomorrow", year:"years", day:"day", days:"days" },
-      nl: { header: (d)=>`Verjaardagen komende ${d} dagen`, noBirthdays:"Geen verjaardagen toegevoegd", noneUpcoming:"Geen verjaardagen", today:"vandaag", tomorrow:"morgen", year:"jaar", day:"dag", days:"dagen" },
-      de: { header: (d)=>`Geburtstage in den nächsten ${d} Tagen`, noBirthdays:"Keine Geburtstage hinzugefügt", noneUpcoming:"Keine bevorstehenden Geburtstage", today:"heute", tomorrow:"morgen", year:"Jahre", day:"Tag", days:"Tage" },
-      fr: { header: (d)=>`Anniversaires dans les ${d} prochains jours`, noBirthdays:"Aucun anniversaire ajouté", noneUpcoming:"Aucun anniversaire à venir", today:"aujourd'hui", tomorrow:"demain", year:"ans", day:"jour", days:"jours" },
-      es: { header: (d)=>`Cumpleaños en los próximos ${d} días`, noBirthdays:"No se han añadido cumpleaños", noneUpcoming:"No hay cumpleaños próximos", today:"hoy", tomorrow:"mañana", year:"años", day:"día", days:"días" }
+      en: { header: (d)=>`Birthdays in the next ${d} days`, noBirthdays:"No birthdays added", noneUpcoming:"No upcoming birthdays", today:"today", tomorrow:"tomorrow", year:"years" },
+      nl: { header: (d)=>`Verjaardagen komende ${d} dagen`, noBirthdays:"Geen verjaardagen toegevoegd", noneUpcoming:"Geen verjaardagen", today:"vandaag", tomorrow:"morgen", year:"jaar" },
+      de: { header: (d)=>`Geburtstage in den nächsten ${d} Tagen`, noBirthdays:"Keine Geburtstage hinzugefügt", noneUpcoming:"Keine bevorstehenden Geburtstage", today:"heute", tomorrow:"morgen", year:"Jahre" },
+      fr: { header: (d)=>`Anniversaires dans les ${d} prochains jours`, noBirthdays:"Aucun anniversaire ajouté", noneUpcoming:"Aucun anniversaire à venir", today:"aujourd'hui", tomorrow:"demain", year:"ans" },
+      es: { header: (d)=>`Cumpleaños en los próximos ${d} días`, noBirthdays:"No se han añadido cumpleaños", noneUpcoming:"No hay cumpleaños próximos", today:"hoy", tomorrow:"mañana", year:"años" }
     };
     const t = translations[lang] || translations["en"];
 
@@ -140,11 +113,7 @@ class JJsBirthdayCard extends LitElement {
         const orig = new Date(b.date);
         let next = new Date(today.getFullYear(), orig.getMonth(), orig.getDate());
         if (next < today) next.setFullYear(next.getFullYear() + 1);
-        
-        // Bereken dagen tot verjaardag
-        const diffDays = Math.round((next - today) / (1000 * 60 * 60 * 24));
-        
-        return { ...b, date: next, originalDate: orig, diffDays };
+        return { ...b, date: next, originalDate: orig };
       })
       .filter(b => {
         const diff = (b.date - today) / (1000 * 60 * 60 * 24);
@@ -208,25 +177,6 @@ class JJsBirthdayCard extends LitElement {
           };
           const textColor = getTextColor(bgColor);
 
-          // Dagen indicator logica
-          const getDaysIndicator = () => {
-            if (!this.config.show_days_indicator || 
-                this.config.days_indicator_style === "none" || 
-                isToday) {
-              return '';
-            }
-
-            const daysText = b.diffDays === 1 ? t.day : t.days;
-            
-            if (this.config.days_indicator_style === "badge") {
-              return html`<span class="days-badge">${b.diffDays}d</span>`;
-            } else if (this.config.days_indicator_style === "text") {
-              return html`<span class="days-text">${b.diffDays} ${daysText}</span>`;
-            }
-            
-            return '';
-          };
-
           return html`
             <div class="birthday"
               style="display:flex;justify-content:space-between;align-items:center;
@@ -237,8 +187,6 @@ class JJsBirthdayCard extends LitElement {
                 <span class="age" style="color:${isToday ? textColor : 'inherit'}">
                   (${age} ${lang === 'nl' ? 'jaar' : t.year})
                 </span>
-                <!-- Dagen indicator -->
-                ${!isToday ? html`<span class="days-indicator">${getDaysIndicator()}</span>` : ''}
               </span>
               <span>${dateText}</span>
             </div>
@@ -269,8 +217,6 @@ class JJsBirthdayCard extends LitElement {
     return {
       days_ahead: 7,
       sort_by: 'date',
-      show_days_indicator: true,
-      days_indicator_style: 'badge',
       birthdays: [
         { name: "Voorbeeld", date: new Date().toISOString().split('T')[0] },
       ],
@@ -426,10 +372,6 @@ class JJsBirthdayCardEditor extends LitElement {
     cfg.custom_header = cfg.custom_header || "";
     cfg.hide_if_empty = config.hide_if_empty === true;
 
-    // Dagen indicator configuratie
-    cfg.show_days_indicator = config.show_days_indicator !== false; // default: true
-    cfg.days_indicator_style = cfg.days_indicator_style || "badge"; // default: badge
-
     // Kleuren (zonder defaults te forceren; undefined = thema)
     cfg.today_color = cfg.today_color || "#ffe082";
     cfg.transparent_background = config.transparent_background === true;
@@ -493,7 +435,7 @@ class JJsBirthdayCardEditor extends LitElement {
   }
 
   render() {
-    const cfg = this._config || { birthdays: [], days_ahead: 7, sort_by: "date", show_days_indicator: true, days_indicator_style: "badge" };
+    const cfg = this._config || { birthdays: [], days_ahead: 7, sort_by: "date" };
     const lang = this.hass?.language || 'en';
 
     const translationsEditor = {
@@ -513,15 +455,10 @@ class JJsBirthdayCardEditor extends LitElement {
         sortDate: "Date",
         sortName: "Name",
         hide_if_empty: "Hide card when there are no upcoming birthdays",
-        cardBackground: "Background color",
+        cardBackground: "Backgroundcolor",
         transparentBg: "Transparent background",
         cardTextColor: "Text color",
         resetTheme: "Theme colors",
-        showDaysIndicator: "Show days indicator",
-        daysIndicatorStyle: "Days indicator style",
-        styleBadge: "Badge",
-        styleText: "Text",
-        styleNone: "None",
       },
       nl: {
         sortBy: "Sorteren op",
@@ -543,11 +480,6 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparant",
         cardTextColor: "Tekstkleur",
         resetTheme: "Thema kleuren",
-        showDaysIndicator: "Toon dagen indicator",
-        daysIndicatorStyle: "Dagen indicator stijl",
-        styleBadge: "Badge",
-        styleText: "Tekst",
-        styleNone: "Geen",
       },
       de: {
         sortBy: "Sortieren nach",
@@ -569,11 +501,6 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparent",
         cardTextColor: "Textfarbe",
         resetTheme: "Themafarbe",
-        showDaysIndicator: "Tage-Indikator anzeigen",
-        daysIndicatorStyle: "Tage-Indikator Stil",
-        styleBadge: "Badge",
-        styleText: "Text",
-        styleNone: "Keine",
       },
       fr: {
         sortBy: "Trier par",
@@ -591,15 +518,10 @@ class JJsBirthdayCardEditor extends LitElement {
         sortDate: "Date",
         sortName: "Nom",
         hide_if_empty: "Masquer la carte s'il n'y a pas d'anniversaires à venir",
-        cardBackground: "Couleur d'arrière-plan",
+        cardBackground: "Couleur d’arrière-plan",
         transparentBg: "Transparent",
         cardTextColor: "Couleur du texte",
         resetTheme: "Thème couleur",
-        showDaysIndicator: "Afficher l'indicateur de jours",
-        daysIndicatorStyle: "Style de l'indicateur de jours",
-        styleBadge: "Badge",
-        styleText: "Texte",
-        styleNone: "Aucun",
       },
       es: {
         sortBy: "Ordenar por",
@@ -621,11 +543,6 @@ class JJsBirthdayCardEditor extends LitElement {
         transparentBg: "Transparente",
         cardTextColor: "Color del texto",
         resetTheme: "Tema color",
-        showDaysIndicator: "Mostrar indicador de días",
-        daysIndicatorStyle: "Estilo del indicador de días",
-        styleBadge: "Badge",
-        styleText: "Texto",
-        styleNone: "Ninguno",
       }
     };
     const t_editor = translationsEditor[lang] || translationsEditor['en'];
@@ -663,37 +580,6 @@ class JJsBirthdayCardEditor extends LitElement {
                 this._fireConfigChanged();
               }}
             />
-          </div>
-        ` : ''}
-
-        <hr class="divider" />
-
-        <div class="toggle-wrapper">
-          <label>${t_editor.showDaysIndicator}</label>
-          <label class="switch">
-            <input
-              type="checkbox"
-              .checked=${cfg.show_days_indicator !== false}
-              @change=${e => {
-                this._config.show_days_indicator = e.target.checked;
-                this._fireConfigChanged();
-              }}
-            />
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        ${cfg.show_days_indicator !== false ? html`
-          <div style="margin: 8px 0;">
-            <label>${t_editor.daysIndicatorStyle}</label>
-            <select 
-              .value=${cfg.days_indicator_style || 'badge'} 
-              @change=${e => this._updateSimpleField('days_indicator_style', e)}
-            >
-              <option value="badge">${t_editor.styleBadge}</option>
-              <option value="text">${t_editor.styleText}</option>
-              <option value="none">${t_editor.styleNone}</option>
-            </select>
           </div>
         ` : ''}
 
